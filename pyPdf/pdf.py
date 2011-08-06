@@ -40,6 +40,7 @@ It may be a solid base for future PDF file work in Python.
 __author__ = "Mathieu Fenniak"
 __author_email__ = "biziqe@mathieu.fenniak.net"
 
+from datetime import datetime
 import math
 import struct
 from sys import version_info
@@ -67,7 +68,7 @@ else:
 # This class supports writing PDF files out, given pages produced by another
 # class (typically {@link #PdfFileReader PdfFileReader}).
 class PdfFileWriter(object):
-    def __init__(self):
+    def __init__(self, documentInfo=None, authors=None):
         self._header = "%PDF-1.3"
         self._objects = []  # array of indirect objects
 
@@ -82,9 +83,19 @@ class PdfFileWriter(object):
 
         # info object
         info = DictionaryObject()
+        if documentInfo:
+            for key, value in documentInfo.items():
+                key = NameObject(key)
+                if key == "/Author" and authors:
+                    value += ", %s" % ", ".join(authors)
+                value = createStringObject(value)
+                info.update({key: value})
+        modifiedDate = datetime.now().strftime("%Y%m%d%H%M%S")
         info.update({
                 NameObject("/Producer"): createStringObject(
-                    u"Python PDF Library - http://pybrary.net/pyPdf/")
+                    u"Python PDF Library - http://pybrary.net/pyPdf/"),
+                NameObject("/ModDate"): createStringObject(
+                    u"D:%s" % modifiedDate),
                 })
         self._info = self._addObject(info)
 
@@ -675,7 +686,7 @@ class PdfFileReader(object):
         return retval
 
     def _decryptObject(self, obj, key):
-        if (isinstance(obj, ByteStringObject) or 
+        if (isinstance(obj, ByteStringObject) or
             isinstance(obj, TextStringObject)):
             obj = createStringObject(
                 utils.RC4_encrypt(key, obj.original_bytes))
@@ -837,7 +848,7 @@ class PdfFileReader(object):
                         num += 1
                 trailerKeys = "/Root", "/Encrypt", "/Info", "/ID"
                 for key in trailerKeys:
-                    if (xrefstream.has_key(key) and not 
+                    if (xrefstream.has_key(key) and not
                         self.trailer.has_key(key)):
                         self.trailer[NameObject(key)] = xrefstream.raw_get(key)
                 if xrefstream.has_key("/Prev"):
